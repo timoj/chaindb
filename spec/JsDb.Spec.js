@@ -4,10 +4,10 @@ describe("JsDb", function () {
 
     it("should be able to create a new table", function () {
         JsDb.createTable("Users");
-        expect(JsDb._tables["Users"]).toEqual({name: name, locked: false});
+        expect(JsDb._tables["Users"]).toEqual({name: "Users", locked: false});
     });
 
-    it("should be able to insert data", function (done) {
+    it("should be able to insert data", function () {
         for (var i = 0; i < 1000; i++) {
             _addManyUsersTest(5000, 5000);
         }
