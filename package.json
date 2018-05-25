@@ -1,0 +1,34 @@
+{
+  "name": "jsdb",
+  "version": "1.0.0",
+  "description": "Simple JavaScript Database with chained-queries",
+  "homepage": "https://github.com/timoj/jsdb",
+  "keywords": [
+    "js",
+    "db",
+    "jsdb",
+    "javascript",
+    "database",
+    "simple",
+    "query"
+  ],
+  "main": "src/jsdb.js",
+  "directories": {
+    "src": "src"
+  },
+  "scripts": {
+    "test": "jasmine"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/timoj/jsdb.git"
+  },
+  "bugs": {
+    "url": "https://github.com/timoj/jsdb/issues"
+  },
+  "author": "Timo Janssen",
+  "license": "MIT",
+  "devDependencies": {
+    "jasmine": "^3.1.0"
+  }
+}
