@@ -136,11 +136,12 @@
     };
 
     ChainDB.Query.prototype.getResults = function () {
+        var resultSet = this._getCorrectResultSet();
         ChainDB._tables[this.fromTable].locked = false;
         if (this.selectedColumns.length === 1 && this.selectedColumns[0] === "*") {
-            return Object.values(this.resultSet);
+            return Object.values(resultSet);
         }
-        var rows = Object.values(this.resultSet);
+        var rows = Object.values(resultSet);
         var resultSetWithCorrectColumns = [];
         for (var i = 0; i < rows.length; i++) {
             resultSetWithCorrectColumns.push(this._formatRowWithCorrectColumns(rows[i]))
@@ -149,8 +150,9 @@
     };
 
     ChainDB.Query.prototype.remove = function () {
-        if (this.resultSet !== undefined && Object.values(this.resultSet).length > 0) {
-            var rows = Object.values(this.resultSet);
+        var resultSet = this._getCorrectResultSet();
+        if (Object.values(resultSet).length > 0) {
+            var rows = Object.values(resultSet);
             var deletedRows = {
                 table: this.fromTable,
                 rows: new Array(rows.length)
