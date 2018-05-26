@@ -9,6 +9,15 @@
     ChainDB._deletedValues = [];
     ChainDB._values = [];
     ChainDB._valIdCounter = 0;
+    ChainDB._busy = false;
+    ChainDB._changed = false;
+
+    setInterval(function(){
+        if (!ChainDB._busy && ChainDB._changed) {
+            ChainDB._optimizer();
+        }
+    }, 3000);
+
 
     ChainDB.createTable = function (name, columns) {
         if (ChainDB._tableNameIndex.indexOf(ChainDB._tableNameSeperator + name + ChainDB._tableNameSeperator) < 0) {
@@ -24,9 +33,11 @@
     ChainDB.deleteTable = function (name) {
         ChainDB._deletedTables.push(name);
         ChainDB._tableNameIndex.replace(name + ChainDB._tableNameSeperator, "");
+        ChainDB._changed = true;
     };
 
     ChainDB._optimizer = function () {
+        ChainDB._busy = true;
         if (ChainDB._deletedValues.length) {
             for (var deletedRows in ChainDB._deletedValues) {
                 var rowsData = ChainDB._deletedValues[deletedRows];
@@ -48,6 +59,8 @@
                 }
             }
         }
+        ChainDB._busy = false;
+        ChainDB._changed = false;
     };
 
     ChainDB.insert = function (table, row) {
@@ -57,11 +70,13 @@
     };
 
     ChainDB.insertBulk = function (table, rows) {
+        ChainDB._busy = true;
         for (var i = 0; i < rows.length; i++) {
             ChainDB._valIdCounter++;
             rows[i].id = ChainDB._valIdCounter;
             ChainDB._values[table][ChainDB._valIdCounter] = rows[i];
         }
+        ChainDB._busy = false;
     };
 
     ChainDB.Query = function () {
@@ -144,7 +159,7 @@
                 deletedRows.rows.push(rows[i].id);
             }
             ChainDB._deletedValues.push(deletedRows);
-            ChainDB._optimizer();
+            ChainDB._changed = true;
         }
     };
 
