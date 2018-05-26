@@ -126,7 +126,7 @@
             return Object.values(this.resultSet);
         }
         var rows = Object.values(this.resultSet);
-        var resultSetWithCorrectColumns =[];
+        var resultSetWithCorrectColumns = [];
         for (var i = 0; i < rows.length; i++) {
             resultSetWithCorrectColumns.push(this._formatRowWithCorrectColumns(rows[i]))
         }

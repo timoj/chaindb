@@ -27,9 +27,12 @@ Inserting in bulk:
 Example:
 ```
 var query = new ChainDB.Query();
-var users = query.select(["name","age"]).from("Users").whereColumnEquals("age", 24).whereColumnMeets("name", function (name) {
-    return (name.slice(-1) === "3")
-});
+    var users = query.select(["name", "age"])
+        .from("Users")
+        .whereColumnEquals("age", 24)
+        .whereColumnMeets("name", function (name) {
+            return (name.slice(-1) === "3")
+        });
 ```
 
 
