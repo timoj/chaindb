@@ -16,7 +16,7 @@
         if (!ChainDB._busy && ChainDB._changed) {
             ChainDB._optimizer();
         }
-    }, 3000);
+    }, 500);
 
 
     ChainDB.createTable = function (name, columns) {
