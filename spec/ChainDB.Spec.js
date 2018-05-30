@@ -10,10 +10,10 @@ describe("ChainDB", function () {
 
     it("should be able to insert data", function (done) {
         ChainDB.createTable("Users", ["name", "age"]);
-        for (var i = 0; i < 1000; i++) {
+        for (var i = 0; i < 10; i++) {
             _addManyUsersTest(5000, 5000);
         }
-        expect(Object.values(ChainDB._values["Users"]).length).toEqual(5001000);
+        expect(Object.values(ChainDB._values["Users"]).length).toEqual(50010);
         done();
     });
 
@@ -29,16 +29,16 @@ describe("ChainDB", function () {
     });
 
     it("should be able to delete data", function (done) {
-        ChainDB.createTable("WebUsers", ["name", "age"]);
-        ChainDB.insert("WebUsers", {name: "User1", age: 24});
-        ChainDB.insertBulk("WebUsers", [{name: "User2", age: 32},{name: "User3", age: 24}]);
-        var initCount = Object.values(ChainDB._values['WebUsers']).length;
+        ChainDB.createTable("SysUsers", ["name", "age"]);
+        ChainDB.insert("SysUsers", {name: "User1", age: 24});
+        ChainDB.insertBulk("SysUsers", [{name: "User2", age: 32},{name: "User3", age: 24}]);
+        var initCount = Object.values(ChainDB._values['SysUsers']).length;
         var query = new ChainDB.Query();
-        query.select(["*"]).from("WebUsers").whereColumnEquals("age", 24).remove();
+        query.select(["*"]).from("SysUsers").whereColumnEquals("age", 24).remove();
         setTimeout(function() {
-            expect(initCount).toBeGreaterThan(Object.values(ChainDB._values['WebUsers']).length);
+            expect(initCount).toBeGreaterThan(Object.values(ChainDB._values['SysUsers']).length);
             done();
-        }, 1000);
+        }, 4000);
 
     });
 

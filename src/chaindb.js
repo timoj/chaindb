@@ -1,5 +1,40 @@
 (function (global) {
+
+    var contains = function (needle) {
+        // Per spec, the way to identify NaN is that it is not equal to itself
+        var findNaN = needle !== needle;
+        var indexOf;
+
+        if (!findNaN && typeof Array.prototype.indexOf === 'function') {
+            indexOf = Array.prototype.indexOf;
+        } else {
+            indexOf = function (needle) {
+                var i = -1, index = -1;
+
+                for (i = 0; i < this.length; i++) {
+                    var item = this[i];
+
+                    if ((findNaN && item !== item) || item === needle) {
+                        index = i;
+                        break;
+                    }
+                }
+
+                return index;
+            };
+        }
+
+        return indexOf.call(this, needle) > -1;
+    };
+
     var ChainDB = {};
+    //TODO: implememnt lock correctly
+
+    ChainDB.settings = {
+        indexAtInsert: true, //If false, newly inserted rows will be indexed by the optimizer, which means it will be indexed at a later moment
+        maxRows: 51000000,
+        optimizerInterval: 500, //In milliseconds
+    };
 
     ChainDB._tables = {};
     ChainDB._tableColumns = {};
@@ -11,20 +46,36 @@
     ChainDB._valIdCounter = 0;
     ChainDB._busy = false;
     ChainDB._changed = false;
+    ChainDB._indexes = {};
+    ChainDB._indexValues = {};
+    ChainDB._rowsToIndex = [];
+    ChainDB._optimizerTask = null;
+    ChainDB._oldOptimizerInterval = ChainDB.settings.optimizerInterval;
 
-    setInterval(function(){
-        if (!ChainDB._busy && ChainDB._changed) {
+    function optimizerManager() {
+        if (!ChainDB._busy && (ChainDB._changed || ChainDB._rowsToIndex.length > 0)) {
             ChainDB._optimizer();
         }
-    }, 500);
+        if (ChainDB._oldOptimizerInterval !== ChainDB.settings.optimizerInterval) {
+            clearInterval(ChainDB._optimizerTask);
+            ChainDB._optimizerTask = setInterval(optimizerManager, ChainDB.settings.optimizerInterval);
+            ChainDB._oldOptimizerInterval = ChainDB.settings.optimizerInterval;
+        }
+    }
 
+    ChainDB._optimizerTask = setInterval(optimizerManager, ChainDB.settings.optimizerInterval);
 
-    ChainDB.createTable = function (name, columns) {
+    ChainDB.createTable = function (name, columns, indexes) {
         if (ChainDB._tableNameIndex.indexOf(ChainDB._tableNameSeperator + name + ChainDB._tableNameSeperator) < 0) {
             ChainDB._tables[name] = {name: name, locked: false};
             ChainDB._tableNameIndex += name + ChainDB._tableNameSeperator;
             ChainDB._tableColumns[name] = columns;
             ChainDB._values[name] = {};
+            if (indexes === undefined) {
+                indexes = [];
+            }
+            ChainDB._indexes[name] = indexes;
+            ChainDB._indexValues[name] = {};
         } else {
             //TODO Exception
         }
@@ -59,22 +110,70 @@
                 }
             }
         }
+        console.log(ChainDB._rowsToIndex.length);
+        if (ChainDB._rowsToIndex.length > 0) {
+            var i = ChainDB._rowsToIndex.length;
+            while (i--) {
+                ChainDB._indexRowValues(ChainDB._rowsToIndex[i].table, ChainDB._values[ChainDB._rowsToIndex[i].table][ChainDB._rowsToIndex[i].rowId]);
+                ChainDB._rowsToIndex.splice(i, 1);
+            }
+        }
         ChainDB._busy = false;
         ChainDB._changed = false;
     };
 
+    ChainDB._indexRowValues = function (table, row, atInsert) {
+        if (atInsert === undefined) {
+            atInsert = false;
+        }
+        if (ChainDB._indexes[table] !== undefined && ChainDB._indexes[table].length > 0) {
+            if (ChainDB.settings.indexAtInsert || !atInsert) {
+                for (var column in row) {
+                    if (contains.call(ChainDB._indexes[table], column)) {
+                        if (ChainDB._indexValues[table][column] === undefined) {
+                            ChainDB._indexValues[table][column] = [];
+                        }
+                        if (ChainDB._indexValues[table][column][row[column]] === undefined) {
+                            ChainDB._indexValues[table][column][row[column]] = [ChainDB._valIdCounter];
+                        } else {
+                            ChainDB._indexValues[table][column][row[column]].push(ChainDB._valIdCounter);
+                        }
+                    }
+                }
+            } else {
+                ChainDB._rowsToIndex.push({table: table, rowId: row.id});
+            }
+        }
+    };
+
+    ChainDB._getIndexValues = function (table, column, value) {
+        var correctIndexedValues = ChainDB._indexValues[table];
+        if (correctIndexedValues !== undefined) {
+            correctIndexedValues = correctIndexedValues[column];
+            if (correctIndexedValues !== undefined) {
+                correctIndexedValues = correctIndexedValues[value];
+                if (correctIndexedValues !== undefined) {
+                    return correctIndexedValues;
+                }
+            }
+        }
+        return [];
+    };
+
     ChainDB.insert = function (table, row) {
+        if (ChainDB._valIdCounter >= ChainDB.settings.maxRows) {
+            //TODO exception.
+        }
         ChainDB._valIdCounter++;
         row.id = ChainDB._valIdCounter;
         ChainDB._values[table][ChainDB._valIdCounter] = row;
+        ChainDB._indexRowValues(table, row, true);
     };
 
     ChainDB.insertBulk = function (table, rows) {
         ChainDB._busy = true;
         for (var i = 0; i < rows.length; i++) {
-            ChainDB._valIdCounter++;
-            rows[i].id = ChainDB._valIdCounter;
-            ChainDB._values[table][ChainDB._valIdCounter] = rows[i];
+            ChainDB.insert(table, rows[i]);
         }
         ChainDB._busy = false;
     };
@@ -106,7 +205,8 @@
     ChainDB.Query.prototype._getCorrectResultSet = function () {
         if (this.resultSet !== undefined)
             return this.resultSet;
-        return ChainDB._values[this.fromTable];
+        var values = ChainDB._values[this.fromTable];
+        return values;
     };
 
     ChainDB.Query.prototype._formatRowWithCorrectColumns = function (row) {
@@ -125,7 +225,18 @@
 
     ChainDB.Query.prototype.whereColumnEquals = function (column, value) {
         var currentResultSet = this._getCorrectResultSet();
-        this.resultSet = Object.values(currentResultSet).filter(row => row[column] === value);
+        if (contains.call(ChainDB._indexes[this.fromTable], column)) {
+            var correctIndexedRowIds = ChainDB._getIndexValues(this.fromTable, column, value);
+            var tmpResults = [];
+            for (var id in correctIndexedRowIds) {
+                if (currentResultSet.hasOwnProperty(id)) {
+                    tmpResults.push(currentResultSet[id]);
+                }
+            }
+            this.resultSet = tmpResults;
+        } else {
+            this.resultSet = Object.values(currentResultSet).filter(row => row[column] === value);
+        }
         return this;
     };
 
@@ -136,6 +247,7 @@
     };
 
     ChainDB.Query.prototype.getResults = function () {
+        //TODO: filter out results that need to be deleted;
         var resultSet = this._getCorrectResultSet();
         ChainDB._tables[this.fromTable].locked = false;
         if (this.selectedColumns.length === 1 && this.selectedColumns[0] === "*") {
