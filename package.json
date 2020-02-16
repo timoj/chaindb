@@ -12,7 +12,7 @@
     "simple",
     "query"
   ],
-  "main": "src/jsdb.js",
+  "main": "src/chaindb.js",
   "directories": {
     "src": "src"
   },
